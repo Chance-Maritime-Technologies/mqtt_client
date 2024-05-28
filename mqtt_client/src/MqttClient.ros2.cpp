@@ -188,6 +188,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
  *
  * @param [in]  serialized_msg  generic serialized ROS message
  * @param [in]  msg_type        ROS message type, e.g. `std_msgs/msg/String`
+ * @param [in]  fixed_encoding  Truthfully this is just an ugly hack to change the encoding of bools in some cases
  * @param [out] primitive       string representation of primitive message data
  *
  * @return true  if primitive ROS message type was found
@@ -195,7 +196,7 @@ bool fixedMqtt2PrimitiveRos(mqtt::const_message_ptr mqtt_msg,
  */
 bool primitiveRosMessageToString(
   const std::shared_ptr<rclcpp::SerializedMessage>& serialized_msg,
-  const std::string& msg_type, std::string& primitive) {
+  const std::string& msg_type, bool fixed_encoding, std::string& primitive) {
 
   bool found_primitive = true;
 
@@ -206,7 +207,10 @@ bool primitiveRosMessageToString(
   } else if (msg_type == "std_msgs/msg/Bool") {
     std_msgs::msg::Bool msg;
     deserializeRosMessage(*serialized_msg, msg);
-    primitive = msg.data ? "true" : "false";
+    if (fixed_encoding)
+      primitive = msg.data ? "1" : "0";
+    else
+      primitive = msg.data ? "true" : "false";
   } else if (msg_type == "std_msgs/msg/Char") {
     std_msgs::msg::Char msg;
     deserializeRosMessage(*serialized_msg, msg);
@@ -954,7 +958,7 @@ void MqttClient::ros2mqtt(
     // resolve ROS messages to primitive strings if possible
     std::string payload;
     bool found_primitive =
-      primitiveRosMessageToString(serialized_msg, ros_msg_type.name, payload);
+      primitiveRosMessageToString(serialized_msg, ros_msg_type.name, ros2mqtt.fixed_type, payload);
     if (found_primitive) {
       payload_buffer = std::vector<uint8_t>(payload.begin(), payload.end());
     } else {
